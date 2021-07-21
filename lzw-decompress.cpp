@@ -18,13 +18,17 @@ struct code_reader {
         fin = _fin;
     }
 
-    int read(int bit_count) {
+    void buffer_bits(int bit_count) {
         while (buffer.size() < bit_count && !feof(fin)) {
             int c = fgetc(fin);
             for (int i = 0; i < 8; i++) {
                 buffer.push(c & (1 << i));
             }
         }
+    }
+
+    int read(int bit_count) {
+        buffer_bits(bit_count);
         int result = 0;
         for (int i = 0; i < bit_count && !buffer.empty(); i++) {
             if (buffer.front()) {
@@ -38,6 +42,11 @@ struct code_reader {
 
     bool done() {
         return feof(fin) && buffer.empty();
+    }
+
+    bool has_enough_bits(int bit_count) {
+        buffer_bits(bit_count);
+        return buffer.size() >= bit_count;
     }
 
     void flush_unaligned(int alignment) {
@@ -97,6 +106,10 @@ static bool lzw_decompress(FILE *fin, FILE *fout) {
     while (!reader.done()) {
         if (next >= (1 << bits) && bits < max_bits) {
             bits ++;
+        }
+
+        if (!reader.has_enough_bits(bits)) {
+            break;
         }
 
         int new_code = reader.read(bits);
