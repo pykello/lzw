@@ -86,7 +86,11 @@ static bool lzw_decompress(FILE *fin, FILE *fout) {
 
     int next = end + 1;
 
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < 500; i++) {
+        if (next >= (1 << bits)) {
+            bits ++;
+        }
+
         int new_code = reader.read(bits);
 
         bool in_translation_table = (code_map[new_code].length() != 0);
