@@ -12,6 +12,7 @@ static bool lzw_decompress(FILE *fin, FILE *fout);
 struct code_reader {
     FILE *fin;
     queue<bool> buffer;
+    int bitpos = 0;
 
     code_reader(FILE *_fin) {
         fin = _fin;
@@ -30,12 +31,19 @@ struct code_reader {
                 result += (1 << i);
             }
             buffer.pop();
+            bitpos++;
         }
         return result;
     }
 
     bool done() {
         return feof(fin) && buffer.empty();
+    }
+
+    void flush_unaligned(int alignment) {
+        while (bitpos % alignment != 0) {
+            read(1);
+        }
     }
 };
 
@@ -86,14 +94,21 @@ static bool lzw_decompress(FILE *fin, FILE *fout) {
 
     int next = end + 1;
 
-    for (int i = 0; i < 500; i++) {
-        if (next >= (1 << bits)) {
+    while (!reader.done()) {
+        if (next >= (1 << bits) && bits < max_bits) {
             bits ++;
         }
 
         int new_code = reader.read(bits);
 
-        bool in_translation_table = (code_map[new_code].length() != 0);
+        if (block_mode && new_code == 256) {
+            reader.flush_unaligned(bits * 8);
+            bits = 9;
+            next = 256;
+            continue;
+        }
+
+        bool in_translation_table = (new_code < next);
         string s;
         if (!in_translation_table) {
             s = code_map[old_code];
@@ -105,7 +120,11 @@ static bool lzw_decompress(FILE *fin, FILE *fout) {
         printf("%s", s.c_str());
         
         character = s[0];
-        code_map[next++] = code_map[old_code] + character;
+
+        if (next < (1 << max_bits)) {
+            code_map[next++] = code_map[old_code] + character;
+        }
+
         old_code = new_code;
     }
 
