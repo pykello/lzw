@@ -6,7 +6,6 @@
         var result = run_compression(msg, pos);
         var codemap = result[0];
         var output = result[1];
-        var message_view = document.getElementById('message_view');
         var headStr = "<th></th>";
         for (var i = 0; i <= msg.length; i++) {
             headStr += "<td>";
@@ -29,6 +28,11 @@
             outStr += "</td>";
         }
         document.getElementById('compression_output').innerHTML = outStr;
+        
+        document.getElementById('compression_codemap_view').innerHTML = codemap2html_compression(codemap);
+    }
+
+    function codemap2html_compression(codemap) {
         var codemapStr = "<tr><td>'\\0'</td><td>0</td></tr>";
         codemapStr += "<tr><th colspan=2>...</th></tr>";
         codemapStr += "<tr><td>A</td><td>65</td></tr>";
@@ -44,18 +48,38 @@
                 codemapStr += "<td>" + codemap[key] + "</td></tr>";
             }
         }
-        document.getElementById('codemap_view').innerHTML = codemapStr;
+
+        return codemapStr;
+    }
+
+    function codemap2html_decompression(codemap) {
+        var codemapStr = "<tr><td>'\\0'</td><td>0</td></tr>";
+        codemapStr += "<tr><th colspan=2>...</th></tr>";
+        codemapStr += "<tr><td>65</td><td>A</td></tr>";
+        codemapStr += "<tr><td>66</td><td>B</td></tr>";
+        codemapStr += "<tr><th colspan=2>...</th></tr>";
+        codemapStr += "<tr><td>97</td><td>a</td></tr>";
+        codemapStr += "<tr><td>98</td><td>b</td></tr>";
+        codemapStr += "<tr><th colspan=2>...</th></tr>";
+
+        for (var key in codemap) {
+            if (key > 255) {
+                codemapStr += "<tr><td>" + key + "</td>";
+                codemapStr += "<td>" + codemap[key] + "</td></tr>";
+            }
+        }
+
+        return codemapStr;
     }
 
     function run_compression(msg, pos) {
         codemap = {};
         out = [];
         s = "";
-        next = 256;
+        next = 257;
         for (var i = 0; i < 256; i++) {
             codemap[String.fromCharCode(i)] = i;
         }
-        console.log("length: " + msg.length + ", pos: " + pos);
         for (var i = 0; i <= pos; i++) {
             if (i == msg.length) {
                 out.push(codemap[s]);
@@ -87,45 +111,147 @@
         pos = Math.max(0, pos-1);
         render_compression(msg, pos);
     }
+
+    function render_decompression(input, pos) {
+        var out = run_decompression(input, pos);
+        var decompressed = out[1];
+        var codemap = out[0];
+
+        var headStr = "<th></th>";
+        for (var i = -1; i <= input.length; i++) {
+            headStr += "<td>";
+            if (i == pos)
+                headStr += "v";
+            headStr += "</td>";
+        }
+        document.getElementById('decompression_head').innerHTML = headStr;
+
+        var inputStr = "<th>Input:</th><td>(start)</td>";
+        for (var i = 0; i < input.length; i++) {
+            inputStr += "<td>" + input[i] + "</td>";
+        }
+        inputStr += "<td>(eom)</td>";
+        document.getElementById('decompression_input').innerHTML = inputStr;
+
+        var outStr = "<th>Output:</th><td></td>";
+        for (var i = 0; i <= input.length; i++) {
+            outStr += "<td>";
+            if (i < decompressed.length) {
+                outStr += decompressed[i];
+            }
+            outStr += "</td>";
+        }
+        document.getElementById('decompression_output').innerHTML = outStr;
+
+        document.getElementById('decompression_codemap_view').innerHTML = codemap2html_decompression(codemap);
+    }
+
+    function run_decompression(input, pos) {
+        codemap = {};
+        out = [];
+        s = "";
+        next = 257;
+        for (var i = 0; i < 256; i++) {
+            codemap[i] = String.fromCharCode(i);
+        }
+        var old_code = input[0];
+        var c = old_code;
+        if (pos >= 0) {
+            out.push(codemap[old_code]);
+        }
+        for (var i = 1; i <= pos && i < input.length; i++) {
+            var new_code = input[i];
+            var s = "";
+            if (!codemap[new_code]) {
+                s = codemap[old_code] + c;
+            } else {
+                s = codemap[new_code];
+            }
+            out.push(s);
+            c = s[0];
+            codemap[next] = codemap[old_code] + c;
+            next += 1;
+            old_code = new_code;
+        }
+        return [codemap, out];
+    }
+
+    var compressed_msg = [];
+    var compressed_pos = 0;
+    function decompression_on_start() {
+        compressed_msg = document.getElementById('input_code').value.split(",");
+        compressed_pos = -1;
+        render_decompression(compressed_msg, compressed_pos);
+    }
+    function decompression_on_next() {
+        compressed_pos = Math.min(compressed_msg.length, compressed_pos+1);
+        render_decompression(compressed_msg, compressed_pos);
+    }
+    function decompression_on_prev() {
+        compressed_pos = Math.max(-1, compressed_pos-1);
+        render_decompression(compressed_msg, compressed_pos);
+    }
 </script>
 <style>
-    #compression_message td, #compression_output td {
+    .cell td {
        border: 1px solid black;
        min-width: 20px;
        height: 20px;
        text-align: center;
     }
-    #compression_head td {
+    .head td {
         text-align: center;
     }
     th {
         text-align: right;
     }
-    #codemap_view td {
+    .codemap td {
         border: 1px solid black;
         min-width: 30px;
         height: 20px;
         text-align: center;
     }
-    #codemap_view th {
+    .codemap th {
         text-align: center;
     }
 </style>
 </head>
 <body>
-    <div id="controls">
-        <label>Text :</label>
-        <input type="text" id="input_text" value="ababa"/>
-        <button onclick="compression_on_start()">Start</button>
-        <button onclick="compression_on_next()">Next</button>
-        <button onclick="compression_on_prev()">Prev</button>
-    </div>
-    <br/>
-    <table id="compression_status" style="border: 1px;">
-        <tr id="compression_head"></tr>
-        <tr id="compression_message"></tr>
-        <tr id="compression_output"></tr>
+    <table width="100%">
+        <tr><td width="50%" style="vertical-align: top;">
+            <h2>Compression Demo</h2>
+            <div>
+                <label>Text :</label>
+                <input type="text" id="input_text" value="ababa"/>
+                <button onclick="compression_on_start()">Start</button>
+                <button onclick="compression_on_next()">Next</button>
+                <button onclick="compression_on_prev()">Prev</button>
+            </div>
+            <br/>
+            <table id="compression_status" style="border: 1px;">
+                <tr id="compression_head" class="head"></tr>
+                <tr id="compression_message" class="cell"></tr>
+                <tr id="compression_output" class="cell"></tr>
+            </table>
+            <table id="compression_codemap_view" class="codemap"></table>
+        </td>
+        <td style="vertical-align: top;">
+            <h2>Decompression Demo</h2>
+            <div>
+                <label>Input Code :</label>
+                <input type="text" id="input_code" value="97,98,257,97"/>
+                <button onclick="decompression_on_start()">Start</button>
+                <button onclick="decompression_on_next()">Next</button>
+                <button onclick="decompression_on_prev()">Prev</button>
+            </div>
+            <br/>
+            <table id="decompression_status" style="border: 1px;">
+                <tr id="decompression_head" class="head"></tr>
+                <tr id="decompression_input" class="cell"></tr>
+                <tr id="decompression_output" class="cell"></tr>
+            </table>
+            <table id="decompression_codemap_view" class="codemap"></table>
+        </td></tr>
     </table>
-    <table id="codemap_view"></div>
 </body>
 </html>
