@@ -1,0 +1,131 @@
+
+<html>
+<head>
+<script lang="javascript">
+    function render_compression(msg, pos) {
+        var result = run_compression(msg, pos);
+        var codemap = result[0];
+        var output = result[1];
+        var message_view = document.getElementById('message_view');
+        var headStr = "<th></th>";
+        for (var i = 0; i <= msg.length; i++) {
+            headStr += "<td>";
+            if (i == pos)
+                headStr += "v";
+            headStr += "</td>";
+        }
+        document.getElementById('compression_head').innerHTML = headStr;
+        var msgStr = "<th>Input:</th>";
+        for (var i = 0; i < msg.length; i++) {
+            msgStr += "<td>" + msg[i] + "</td>";
+        }
+        msgStr += "<td>(eom)</td>"
+        document.getElementById('compression_message').innerHTML = msgStr;
+        var outStr = "<th>Output:</th>";
+        for (var i = 0; i <= msg.length; i++) {
+            outStr += "<td>";
+            if (i < output.length)
+                outStr += output[i];
+            outStr += "</td>";
+        }
+        document.getElementById('compression_output').innerHTML = outStr;
+        var codemapStr = "<tr><td>'\\0'</td><td>0</td></tr>";
+        codemapStr += "<tr><th colspan=2>...</th></tr>";
+        codemapStr += "<tr><td>A</td><td>65</td></tr>";
+        codemapStr += "<tr><td>B</td><td>66</td></tr>";
+        codemapStr += "<tr><th colspan=2>...</th></tr>";
+        codemapStr += "<tr><td>a</td><td>97</td></tr>";
+        codemapStr += "<tr><td>b</td><td>98</td></tr>";
+        codemapStr += "<tr><th colspan=2>...</th></tr>";
+
+        for (var key in codemap) {
+            if (codemap[key] > 255) {
+                codemapStr += "<tr><td>" + key + "</td>";
+                codemapStr += "<td>" + codemap[key] + "</td></tr>";
+            }
+        }
+        document.getElementById('codemap_view').innerHTML = codemapStr;
+    }
+
+    function run_compression(msg, pos) {
+        codemap = {};
+        out = [];
+        s = "";
+        next = 256;
+        for (var i = 0; i < 256; i++) {
+            codemap[String.fromCharCode(i)] = i;
+        }
+        console.log("length: " + msg.length + ", pos: " + pos);
+        for (var i = 0; i <= pos; i++) {
+            if (i == msg.length) {
+                out.push(codemap[s]);
+            } else if (codemap[s + msg[i]]) {
+                s += msg[i];
+                out.push('');
+            } else {
+                out.push(codemap[s]);
+                codemap[s + msg[i]] = next;
+                next += 1;
+                s = msg[i];
+            }
+        }
+        return [codemap, out];
+    }
+
+    var msg = "";
+    var pos = 0;
+    function compression_on_start() {
+        msg = document.getElementById('input_text').value;
+        pos = 0;
+        render_compression(msg, pos);
+    }
+    function compression_on_next() {
+        pos = Math.min(msg.length, pos+1);
+        render_compression(msg, pos);
+    }
+    function compression_on_prev() {
+        pos = Math.max(0, pos-1);
+        render_compression(msg, pos);
+    }
+</script>
+<style>
+    #compression_message td, #compression_output td {
+       border: 1px solid black;
+       min-width: 20px;
+       height: 20px;
+       text-align: center;
+    }
+    #compression_head td {
+        text-align: center;
+    }
+    th {
+        text-align: right;
+    }
+    #codemap_view td {
+        border: 1px solid black;
+        min-width: 30px;
+        height: 20px;
+        text-align: center;
+    }
+    #codemap_view th {
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+    <div id="controls">
+        <label>Text :</label>
+        <input type="text" id="input_text" value="ababa"/>
+        <button onclick="compression_on_start()">Start</button>
+        <button onclick="compression_on_next()">Next</button>
+        <button onclick="compression_on_prev()">Prev</button>
+    </div>
+    <br/>
+    <table id="compression_status" style="border: 1px;">
+        <tr id="compression_head"></tr>
+        <tr id="compression_message"></tr>
+        <tr id="compression_output"></tr>
+    </table>
+    <table id="codemap_view"></div>
+</body>
+</html>
